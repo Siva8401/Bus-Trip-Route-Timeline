@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Trip Timeline</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #0b1220;
+    --card-soft: #020617;
+    --accent: #38bdf8;
+    --accent-soft: rgba(56,189,248,0.12);
+    --muted: #9ca3af;
+    --text: #e5e7eb;
+    --danger: #f97373;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: radial-gradient(circle at top, #1e293b, #020617 60%);
+    color: var(--text);
+  }
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  header.app-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .app-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(15,23,42,0.85);
+    border: 1px solid rgba(148,163,184,0.35);
+    color: var(--muted);
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  h1 span.spark {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: radial-gradient(circle, #22c55e, #15803d);
+    box-shadow: 0 0 12px rgba(34,197,94,0.7);
+  }
+  p.note {
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  button {
+    cursor: pointer;
+  }
+  .btn {
+    border-radius: 999px;
+    border: 0;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: transform 0.05s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+    color: #0b1120;
+    box-shadow: 0 12px 25px rgba(56,189,248,0.35);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 35px rgba(56,189,248,0.45);
+  }
+  .btn-primary:active { transform: translateY(0); box-shadow: none; }
+  .btn-ghost {
+    background: rgba(15,23,42,0.85);
+    color: var(--muted);
+    border: 1px solid rgba(148,163,184,0.4);
+  }
+  .btn-ghost:hover {
+    background: rgba(15,23,42,1);
+    border-color: rgba(209,213,219,0.7);
+  }
+
+  .panel {
+    background: radial-gradient(circle at top left, rgba(56,189,248,0.12), rgba(15,23,42,0.95));
+    border-radius: 18px;
+    padding: 14px 16px 16px;
+    border: 1px solid rgba(148,163,184,0.35);
+    box-shadow: 0 18px 35px rgba(15,23,42,0.8);
+    margin-bottom: 16px;
+  }
+  label.label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(148,163,184,0.9);
+    margin-bottom: 6px;
+    display: block;
+  }
+  textarea {
+    width: 100%;
+    min-height: 170px;
+    border-radius: 12px;
+    border: 1px solid rgba(30,64,175,0.8);
+    background: rgba(15,23,42,0.92);
+    color: var(--text);
+    padding: 10px 12px;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 12px;
+    resize: vertical;
+    outline: none;
+    box-shadow: inset 0 0 0 1px rgba(15,23,42,0.9);
+  }
+  textarea:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 1px rgba(56,189,248,0.7);
+  }
+  .input-footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .hint {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(15,23,42,0.9);
+    border: 1px solid rgba(148,163,184,0.3);
+    font-size: 10px;
+  }
+
+  .timeline-card {
+    background: linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.98));
+    border-radius: 18px;
+    padding: 14px 16px 18px;
+    border: 1px solid rgba(148,163,184,0.4);
+    box-shadow: 0 18px 40px rgba(15,23,42,0.9);
+  }
+  .timeline-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: baseline;
+    margin-bottom: 12px;
+    border-bottom: 1px dashed rgba(55,65,81,0.8);
+    padding-bottom: 8px;
+  }
+  .timeline-title {
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .timeline-title span.reg {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(15,23,42,0.95);
+    border: 1px solid rgba(56,189,248,0.5);
+    font-size: 11px;
+    color: #e0f2fe;
+  }
+  .timeline-meta {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+    margin-top: 8px;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 13px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #38bdf8, #22c55e);
+    box-shadow: 0 0 12px rgba(56,189,248,0.7);
+  }
+  .item {
+    position: relative;
+    margin-bottom: 12px;
+    padding: 9px 11px;
+    border-radius: 12px;
+    background: radial-gradient(circle at top left, rgba(30,64,175,0.35), rgba(15,23,42,0.98));
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    border: 1px solid rgba(30,64,175,0.7);
+  }
+  .item.main-stop {
+    background: radial-gradient(circle at top left, rgba(34,197,94,0.25), rgba(15,23,42,0.98));
+    border-color: rgba(34,197,94,0.7);
+  }
+  .dot {
+    position: absolute;
+    left: -3px;
+    top: 14px;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: #0b1120;
+    border: 3px solid #38bdf8;
+    box-shadow: 0 0 12px rgba(56,189,248,0.8);
+  }
+  .item.main-stop .dot {
+    border-color: #22c55e;
+    box-shadow: 0 0 14px rgba(34,197,94,0.9);
+  }
+  .meta-col {
+    min-width: 108px;
+    font-size: 11px;
+    color: var(--muted);
+    padding-top: 2px;
+  }
+  .meta-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(148,163,184,0.9);
+  }
+  .meta-time {
+    font-size: 12px;
+    font-weight: 600;
+    color: #e5e7eb;
+  }
+  .meta-time.secondary {
+    font-size: 11px;
+    color: rgba(148,163,184,0.95);
+  }
+  .box {
+    flex: 1;
+  }
+  .stop-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stop-name .chip {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(15,23,42,0.85);
+    border: 1px solid rgba(148,163,184,0.6);
+    color: #e5e7eb;
+  }
+  .stop-name .chip.via {
+    border-color: rgba(148,163,184,0.4);
+    color: var(--muted);
+    background: rgba(15,23,42,0.7);
+  }
+  .meta-line {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .meta-line strong {
+    color: #e5e7eb;
+  }
+
+  .empty {
+    padding: 22px;
+    border-radius: 14px;
+    border: 1px dashed rgba(148,163,184,0.5);
+    background: radial-gradient(circle at top, rgba(30,64,175,0.35), rgba(15,23,42,0.95));
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <div>
+      <div class="app-title">
+        <span class="badge">Timeline Builder</span>
+        <h1><span class="spark"></span> Bus Trip Route Timeline</h1>
+      </div>
+      <p class="note">
+        Paste lines in the format: <code>RegNo,Fence,Arrival,Departure</code> and click <strong>Render Timeline</strong>.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button id="downloadBtn" class="btn btn-ghost">
+        ⬇ Save HTML
+      </button>
+    </div>
+  </header>
+
+  <section class="panel">
+    <label class="label">Timeline Input (CSV)</label>
+    <textarea id="inputArea">Paste the lines here</textarea>
+    <div class="input-footer">
+      <div class="hint">
+        Example: <code>PY01DE6067,PONDICHERRY NEW BUS STAND,05:29:35,05:40:05</code><br>
+        RegNo is taken from the <strong>first row</strong> for the heading &amp; file name.
+      </div>
+      <div>
+        <button id="renderBtn" class="btn btn-primary">⚡ Render Timeline</button>
+        <button id="clearBtn" class="btn btn-ghost">Clear</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="timeline-card">
+    <div class="timeline-header">
+      <div class="timeline-title">
+        <span>Trip Travelled Timing for</span>
+        <span id="regBadge" class="reg">—</span>
+      </div>
+      <div class="timeline-meta">
+        <span id="stopCount">0 stops</span><br>
+        <span id="timeSpan">—</span>
+      </div>
+    </div>
+    <div id="preview"></div>
+  </section>
+
+</div>
+
+<script>
+let currentRegNo = '';
+
+function normalizeTime(t) {
+  if (!t) return '';
+  t = String(t).trim();
+  // If only HH:MM -> add seconds
+  if (/^[0-2]?\\d:[0-5]\\d$/.test(t)) return t + ':00';
+  if (/^[0-2]?\\d:[0-5]\\d:[0-5]\\d$/.test(t)) return t;
+  return t; // return as-is if weird
+}
+
+function parseInput(text) {
+  // Split into lines, remove empty ones
+  const lines = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
+
+  const rows = [];
+
+  for (const line of lines) {
+    // Skip header line if any
+    if (/^regno\b/i.test(line)) continue;
+
+    // Split by comma, tab or semicolon
+    const parts = line
+      .split(/[,\t;]/)
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+
+    // Need at least 4 pieces: RegNo, Fence, Arrival, Departure
+    if (parts.length < 4) continue;
+
+    const reg      = parts[0];
+    const fence    = parts[1];
+    const arrival  = normalizeTime(parts[2]);
+    const departure= normalizeTime(parts[3]);
+
+    rows.push({ reg, fence, arrival, departure });
+  }
+
+  return rows;
+}
+
+function renderTimeline(items, mount) {
+  if (!items || items.length === 0) {
+    mount.innerHTML = '<div class="empty">No timeline data yet. Paste CSV above and click <strong>Render Timeline</strong>.</div>';
+    document.getElementById('regBadge').textContent = '—';
+    document.getElementById('stopCount').textContent = '0 stops';
+    document.getElementById('timeSpan').textContent = '—';
+    currentRegNo = '';
+    return;
+  }
+
+  currentRegNo = items[0].reg || '';
+  document.getElementById('regBadge').textContent = currentRegNo || 'Unknown';
+
+  // Stops count and trip span
+  document.getElementById('stopCount').textContent = items.length + ' stops';
+  const firstArr = items[0].arrival;
+  const lastDep = items[items.length - 1].departure || items[items.length - 1].arrival;
+  document.getElementById('timeSpan').textContent =
+    (firstArr && lastDep) ? ('From ' + firstArr + ' to ' + lastDep) : '—';
+
+  const container = document.createElement('div');
+  container.className = 'timeline';
+
+  items.forEach((it, idx) => {
+    const isVia = /^via:/i.test(it.fence || '');
+    const isMain = !isVia; // treat non-"Via:" as main stops
+
+    const item = document.createElement('div');
+    item.className = 'item' + (isMain ? ' main-stop' : '');
+
+    item.innerHTML =
+      '<div class="dot"></div>' +
+      '<div class="meta-col">' +
+        '<div class="meta-label">Arrival</div>' +
+        '<div class="meta-time">' + escapeHtml(it.arrival || '') + '</div>' +
+        '<div class="meta-label" style="margin-top:4px;">Departure</div>' +
+        '<div class="meta-time secondary">' + escapeHtml(it.departure || '') + '</div>' +
+      '</div>' +
+      '<div class="box">' +
+        '<div class="stop-name">' +
+          '<span>' + escapeHtml((it.fence || 'Unnamed').trim()) + '</span>' +
+          (isVia
+            ? '<span class="chip via">Via</span>'
+            : '<span class="chip">Main Stop</span>') +
+        '</div>' +
+        '<div class="meta-line">' +
+          (it.arrival ? '<strong>Arr:</strong> ' + escapeHtml(it.arrival) : '') +
+          (it.departure ? ' &nbsp;&nbsp; <strong>Dep:</strong> ' + escapeHtml(it.departure) : '') +
+        '</div>' +
+      '</div>';
+
+    container.appendChild(item);
+  });
+
+  mount.innerHTML = '';
+  mount.appendChild(container);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+// Render button
+document.getElementById('renderBtn').addEventListener('click', () => {
+  const txt = document.getElementById('inputArea').value;
+  const items = parseInput(txt);
+  renderTimeline(items, document.getElementById('preview'));
+});
+
+// Clear button
+document.getElementById('clearBtn').addEventListener('click', () => {
+  document.getElementById('inputArea').value = '';
+  renderTimeline([], document.getElementById('preview'));
+});
+
+// Download HTML snapshot – filename = RegNo.html
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const titleReg = currentRegNo || 'bus-route-timeline';
+  const previewHtml = document.querySelector('.timeline-card').outerHTML;
+  const styleText = document.querySelector('style').innerText;
+
+  const doc =
+    '<!doctype html><html><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Trip Travelled Timing for ' + escapeHtml(titleReg) + '</title>' +
+    '<style>' + styleText + '</style></head><body>' +
+    '<div class="wrap">' +
+    '<header class="app-header"><div class="app-title">' +
+    '<span class="badge">Timeline</span>' +
+    '<h1><span class="spark"></span> Trip Travelled Timing for ' + escapeHtml(titleReg) + '</h1>' +
+    '</div></header>' +
+    previewHtml +
+    '</div></body></html>';
+
+  const blob = new Blob([doc], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = titleReg + '.html';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+// Auto-render initial sample
+document.getElementById('renderBtn').click();
+</script>
+</body>
+</html>
