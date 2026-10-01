@@ -1,160 +1,112 @@
-/********************************************************
- * PUDUCHERRY BUS CITIZEN WEB APP
- ********************************************************/
-
-
-/* =====================================================
-   CONFIGURATION
-===================================================== */
-
 const API_URL =
   'https://script.google.com/macros/s/AKfycbwuzXNZNZs_1lQ-KtK8P7VE6E97-uhepYZsw7qZGeW-LaP-0mAb5l_8ICLIA_1yJ3Mb/exec';
 
 
 /* =====================================================
-   GLOBAL DATA
+   STATE
 ===================================================== */
 
-let appData = {
+const state = {
 
-  routes: [],
+  meta: {
+    routes: [],
+    stops: []
+  },
 
-  stops: []
+  results: [],
 
+  selectedFrom: '',
+  selectedTo: '',
+
+  lastSearch: null,
+
+  loading: false
 };
-
-
-let timelineCache =
-  new Map();
-
-
-let activeResults =
-  [];
-
-
-let animationTimer =
-  null;
 
 
 /* =====================================================
    DOM
 ===================================================== */
 
-const quickSearch =
-  document.getElementById(
-    'quickSearch'
-  );
+const $ = id =>
+  document.getElementById(id);
 
+
+const quickSearch =
+  $('quickSearch');
 
 const clearSearch =
-  document.getElementById(
-    'clearSearch'
-  );
-
-
-const routeSelect =
-  document.getElementById(
-    'routeSelect'
-  );
-
-
-const vehicleSelect =
-  document.getElementById(
-    'vehicleSelect'
-  );
-
+  $('clearSearch');
 
 const fromSelect =
-  document.getElementById(
-    'fromSelect'
-  );
-
+  $('fromSelect');
 
 const toSelect =
-  document.getElementById(
-    'toSelect'
-  );
+  $('toSelect');
 
+const busSelect =
+  $('busSelect');
 
-const findBusButton =
-  document.getElementById(
-    'findBusButton'
-  );
+const routeSelect =
+  $('routeSelect');
 
+const vehicleSelect =
+  $('vehicleSelect');
+
+const searchButton =
+  $('searchButton');
 
 const resetButton =
-  document.getElementById(
-    'resetButton'
-  );
+  $('resetButton');
 
+const swapButton =
+  $('swapButton');
+
+const refreshButton =
+  $('refreshButton');
 
 const busResults =
-  document.getElementById(
-    'busResults'
-  );
-
+  $('busResults');
 
 const emptyState =
-  document.getElementById(
-    'emptyState'
-  );
-
+  $('emptyState');
 
 const loadingState =
-  document.getElementById(
-    'loadingState'
-  );
-
+  $('loadingState');
 
 const resultCount =
-  document.getElementById(
-    'resultCount'
-  );
-
+  $('resultCount');
 
 const resultsSummary =
-  document.getElementById(
-    'resultsSummary'
-  );
+  $('resultsSummary');
 
+const currentTime =
+  $('currentTime');
 
-const currentTimeElement =
-  document.getElementById(
-    'currentTime'
-  );
-
-
-const currentDateElement =
-  document.getElementById(
-    'currentDate'
-  );
-
+const currentDate =
+  $('currentDate');
 
 const connectionDot =
-  document.getElementById(
-    'connectionDot'
-  );
-
+  $('connectionDot');
 
 const connectionText =
-  document.getElementById(
-    'connectionText'
-  );
+  $('connectionText');
 
 
 /* =====================================================
-   START
+   INIT
 ===================================================== */
 
 document.addEventListener(
   'DOMContentLoaded',
-  initialize
+  init
 );
 
 
-async function initialize() {
+async function init() {
 
   updateClock();
+
 
   setInterval(
     updateClock,
@@ -162,9 +114,21 @@ async function initialize() {
   );
 
 
-  quickSearch.addEventListener(
-    'input',
-    handleQuickSearch
+  searchButton.addEventListener(
+    'click',
+    searchBuses
+  );
+
+
+  resetButton.addEventListener(
+    'click',
+    resetAll
+  );
+
+
+  swapButton.addEventListener(
+    'click',
+    swapStops
   );
 
 
@@ -174,40 +138,35 @@ async function initialize() {
 
       quickSearch.value = '';
 
-      renderRouteOptions(
-        appData.routes
-      );
-
-      renderVehicleOptions(
-        appData.routes
-      );
     }
   );
 
 
-  routeSelect.addEventListener(
-    'change',
-    handleRouteChange
+  refreshButton.addEventListener(
+    'click',
+    refreshData
   );
 
 
-  findBusButton.addEventListener(
-    'click',
-    searchBuses
-  );
+  quickSearch.addEventListener(
+    'keydown',
+    event => {
 
+      if (
+        event.key === 'Enter'
+      ) {
 
-  resetButton.addEventListener(
-    'click',
-    resetFilters
+        searchBuses();
+      }
+    }
   );
 
 
   try {
 
-    await loadMetaData();
+    await loadMeta();
 
-    setConnectionStatus(
+    setConnection(
       true
     );
 
@@ -215,12 +174,12 @@ async function initialize() {
 
     console.error(error);
 
-    setConnectionStatus(
+    setConnection(
       false
     );
 
     showError(
-      'Unable to connect to bus timetable server.'
+      'Unable to load bus information.'
     );
   }
 }
@@ -230,13 +189,16 @@ async function initialize() {
    API
 ===================================================== */
 
-async function apiRequest(
+async function api(
   action,
   params = {}
 ) {
 
   const url =
-    new URL(API_URL);
+    new URL(
+      API_URL
+    );
+
 
   url.searchParams.set(
     'action',
@@ -244,15 +206,23 @@ async function apiRequest(
   );
 
 
-  Object.entries(params)
+  Object.keys(params)
     .forEach(
-      ([key, value]) => {
+      key => {
 
-        url.searchParams.set(
-          key,
-          value
-        );
+        if (
+          params[key] !==
+          undefined &&
+          params[key] !==
+          null &&
+          params[key] !== ''
+        ) {
 
+          url.searchParams.set(
+            key,
+            params[key]
+          );
+        }
       }
     );
 
@@ -261,8 +231,11 @@ async function apiRequest(
     await fetch(
       url.toString(),
       {
-        method: 'GET',
-        cache: 'no-store'
+        method:
+          'GET',
+
+        cache:
+          'no-store'
       }
     );
 
@@ -270,7 +243,8 @@ async function apiRequest(
   if (!response.ok) {
 
     throw new Error(
-      `HTTP ${response.status}`
+      'Server returned ' +
+      response.status
     );
   }
 
@@ -293,250 +267,63 @@ async function apiRequest(
 
 
 /* =====================================================
-   LOAD META
+   META
 ===================================================== */
 
-async function loadMetaData() {
+async function loadMeta() {
 
   const data =
-    await apiRequest(
+    await api(
       'meta'
     );
 
 
-  appData.routes =
-    data.routes || [];
+  state.meta =
+    data;
 
 
-  appData.stops =
-    data.stops || [];
-
-
-  renderRouteOptions(
-    appData.routes
+  populateStops(
+    data.stops
   );
 
 
-  renderVehicleOptions(
-    appData.routes
-  );
-
-
-  renderStopOptions(
-    appData.stops
+  populateFilters(
+    data.routes
   );
 }
 
 
 /* =====================================================
-   ROUTE OPTIONS
+   STOPS
 ===================================================== */
 
-function renderRouteOptions(
-  routes
-) {
-
-  const current =
-    routeSelect.value;
-
-
-  const unique = {};
-
-  routes.forEach(
-    item => {
-
-      const route =
-        item.bus || '';
-
-      if (!route) {
-        return;
-      }
-
-      const key =
-        normalize(route);
-
-      if (!unique[key]) {
-
-        unique[key] =
-          route;
-      }
-    }
-  );
-
-
-  const sorted =
-    Object.values(unique)
-      .sort(naturalCompare);
-
-
-  routeSelect.innerHTML =
-    `<option value="">All Routes</option>`;
-
-
-  sorted.forEach(
-    route => {
-
-      const option =
-        document.createElement(
-          'option'
-        );
-
-      option.value =
-        route;
-
-      option.textContent =
-        route;
-
-      routeSelect.appendChild(
-        option
-      );
-    }
-  );
-
-
-  if (
-    sorted.some(
-      x =>
-        normalize(x) ===
-        normalize(current)
-    )
-  ) {
-
-    routeSelect.value =
-      current;
-  }
-}
-
-
-/* =====================================================
-   VEHICLE OPTIONS
-===================================================== */
-
-function renderVehicleOptions(
-  routes
-) {
-
-  const current =
-    vehicleSelect.value;
-
-
-  const unique = {};
-
-
-  routes.forEach(
-    item => {
-
-      const vehicle =
-        item.vehicle || '';
-
-      if (!vehicle) {
-        return;
-      }
-
-      const key =
-        normalize(vehicle);
-
-      if (!unique[key]) {
-
-        unique[key] =
-          vehicle;
-      }
-    }
-  );
-
-
-  const sorted =
-    Object.values(unique)
-      .sort(naturalCompare);
-
-
-  vehicleSelect.innerHTML =
-    `<option value="">All Vehicles</option>`;
-
-
-  sorted.forEach(
-    vehicle => {
-
-      const option =
-        document.createElement(
-          'option'
-        );
-
-      option.value =
-        vehicle;
-
-      option.textContent =
-        vehicle;
-
-      vehicleSelect.appendChild(
-        option
-      );
-    }
-  );
-
-
-  if (
-    sorted.some(
-      x =>
-        normalize(x) ===
-        normalize(current)
-    )
-  ) {
-
-    vehicleSelect.value =
-      current;
-  }
-}
-
-
-/* =====================================================
-   STOP OPTIONS
-===================================================== */
-
-function renderStopOptions(
+function populateStops(
   stops
 ) {
 
   fromSelect.innerHTML =
-    `<option value="">Select From Stop</option>`;
-
+    '<option value="">Select starting stop</option>';
 
   toSelect.innerHTML =
-    `<option value="">Select To Stop</option>`;
+    '<option value="">Select destination</option>';
 
 
   stops.forEach(
     stop => {
 
-      const fromOption =
-        document.createElement(
-          'option'
-        );
-
-      fromOption.value =
-        stop;
-
-      fromOption.textContent =
-        stop;
-
       fromSelect.appendChild(
-        fromOption
+        createOption(
+          stop,
+          stop
+        )
       );
 
 
-      const toOption =
-        document.createElement(
-          'option'
-        );
-
-      toOption.value =
-        stop;
-
-      toOption.textContent =
-        stop;
-
       toSelect.appendChild(
-        toOption
+        createOption(
+          stop,
+          stop
+        )
       );
     }
   );
@@ -544,383 +331,221 @@ function renderStopOptions(
 
 
 /* =====================================================
-   ROUTE CHANGE
+   FILTERS
 ===================================================== */
 
-function handleRouteChange() {
+function populateFilters(
+  routes
+) {
 
-  const selectedRoute =
-    normalize(
-      routeSelect.value
+  /*
+   * BUS NUMBERS
+   */
+
+  const buses =
+    uniqueSorted(
+      routes.map(
+        x => x.bus
+      ).filter(Boolean)
     );
 
 
-  if (!selectedRoute) {
+  busSelect.innerHTML =
+    '<option value="">All bus routes</option>';
 
-    renderVehicleOptions(
-      appData.routes
+
+  buses.forEach(
+    bus => {
+
+      busSelect.appendChild(
+        createOption(
+          bus,
+          bus
+        )
+      );
+    }
+  );
+
+
+  /*
+   * ROUTE NAMES
+   */
+
+  const routeNames =
+    uniqueSorted(
+      routes.map(
+        x => x.route
+      ).filter(Boolean)
     );
 
-    return;
-  }
+
+  routeSelect.innerHTML =
+    '<option value="">All route names</option>';
 
 
-  const filtered =
-    appData.routes.filter(
-      item =>
-        normalize(item.bus) ===
-        selectedRoute
+  routeNames.forEach(
+    route => {
+
+      routeSelect.appendChild(
+        createOption(
+          route,
+          route
+        )
+      );
+    }
+  );
+
+
+  /*
+   * VEHICLES
+   */
+
+  const vehicles =
+    uniqueSorted(
+      routes.map(
+        x => x.vehicle
+      ).filter(Boolean)
     );
 
 
-  renderVehicleOptions(
-    filtered
+  vehicleSelect.innerHTML =
+    '<option value="">All vehicles</option>';
+
+
+  vehicles.forEach(
+    vehicle => {
+
+      vehicleSelect.appendChild(
+        createOption(
+          vehicle,
+          vehicle
+        )
+      );
+    }
   );
 }
 
 
 /* =====================================================
-   QUICK SEARCH
-===================================================== */
-
-function handleQuickSearch() {
-
-  const value =
-    normalize(
-      quickSearch.value
-    );
-
-
-  if (!value) {
-
-    renderRouteOptions(
-      appData.routes
-    );
-
-    renderVehicleOptions(
-      appData.routes
-    );
-
-    return;
-  }
-
-
-  const filtered =
-    appData.routes.filter(
-      item => {
-
-        return (
-
-          normalize(item.bus)
-            .includes(value)
-
-          ||
-
-          normalize(item.route)
-            .includes(value)
-
-          ||
-
-          normalize(item.vehicle)
-            .includes(value)
-
-        );
-
-      }
-    );
-
-
-  renderRouteOptions(
-    filtered
-  );
-
-
-  renderVehicleOptions(
-    filtered
-  );
-}
-
-
-/* =====================================================
-   SEARCH BUSES
+   SEARCH
 ===================================================== */
 
 async function searchBuses() {
 
-  showLoading(
+  if (
+    state.loading
+  ) {
+
+    return;
+  }
+
+
+  const from =
+    fromSelect.value;
+
+  const to =
+    toSelect.value;
+
+  const bus =
+    busSelect.value;
+
+  const route =
+    routeSelect.value;
+
+  const vehicle =
+    vehicleSelect.value;
+
+  const q =
+    quickSearch.value.trim();
+
+
+  /*
+   * If absolutely no filter is
+   * selected, show a helpful message
+   * instead of downloading all
+   * timetable rows.
+   */
+
+  if (
+    !from &&
+    !to &&
+    !bus &&
+    !route &&
+    !vehicle &&
+    !q
+  ) {
+
+    showEmpty(
+      'Choose a route, route name, vehicle or From/To stops.'
+    );
+
+    return;
+  }
+
+
+  setLoading(
     true
   );
 
 
   try {
 
-    const route =
-      normalize(
-        routeSelect.value
-      );
-
-
-    const vehicle =
-      normalize(
-        vehicleSelect.value
-      );
-
-
-    const from =
-      normalize(
-        fromSelect.value
-      );
-
-
-    const to =
-      normalize(
-        toSelect.value
-      );
-
-
-    const quick =
-      normalize(
-        quickSearch.value
-      );
-
-
-    let results =
-      appData.routes.filter(
-        item => {
-
-          if (
-            route &&
-            normalize(item.bus) !==
-            route
-          ) {
-            return false;
-          }
-
-
-          if (
-            vehicle &&
-            normalize(item.vehicle) !==
-            vehicle
-          ) {
-            return false;
-          }
-
-
-          if (quick) {
-
-            const matchesQuick =
-
-              normalize(item.bus)
-                .includes(quick)
-
-              ||
-
-              normalize(item.vehicle)
-                .includes(quick)
-
-              ||
-
-              normalize(item.route)
-                .includes(quick);
-
-
-            if (!matchesQuick) {
-              return false;
-            }
-          }
-
-
-          return true;
-        }
-      );
-
-
-    const detailedResults =
-      [];
-
-
-    for (
-      const routeInfo of results
-    ) {
-
-      try {
-
-        const timeline =
-          await getTimeline(
-            routeInfo.id
-          );
-
-
-        if (
-          from &&
-          !timelineContainsStop(
-            timeline,
-            from
-          )
-        ) {
-
-          continue;
-        }
-
-
-        if (
-          to &&
-          !timelineContainsStop(
-            timeline,
-            to
-          )
-        ) {
-
-          continue;
-        }
-
-
-        if (
-          from &&
-          to &&
-          !hasCorrectStopOrder(
-            timeline,
+    const data =
+      await api(
+        'search',
+        {
+          from:
             from,
-            to
-          )
-        ) {
 
-          continue;
+          to:
+            to,
+
+          bus:
+            bus,
+
+          route:
+            route,
+
+          vehicle:
+            vehicle,
+
+          q:
+            q
         }
+      );
 
 
-        detailedResults.push({
-          ...routeInfo,
-          timeline
-        });
-
-      } catch (error) {
-
-        console.error(
-          'Timeline error',
-          routeInfo,
-          error
-        );
-      }
-    }
+    state.results =
+      data.results || [];
 
 
-    activeResults =
-      detailedResults;
+    state.lastSearch =
+      data;
 
 
     renderResults(
-      detailedResults,
-      from,
-      to
+      state.results
     );
 
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      error
+    );
+
 
     showError(
       error.message
     );
 
+
   } finally {
 
-    showLoading(
+    setLoading(
       false
     );
   }
-}
-
-
-/* =====================================================
-   TIMELINE API
-===================================================== */
-
-async function getTimeline(
-  column
-) {
-
-  if (
-    timelineCache.has(column)
-  ) {
-
-    return timelineCache.get(
-      column
-    );
-  }
-
-
-  const data =
-    await apiRequest(
-      'timeline',
-      {
-        column: column
-      }
-    );
-
-
-  const timeline =
-    data.timeline || [];
-
-
-  timelineCache.set(
-    column,
-    timeline
-  );
-
-
-  return timeline;
-}
-
-
-/* =====================================================
-   STOP CHECK
-===================================================== */
-
-function timelineContainsStop(
-  timeline,
-  stop
-) {
-
-  return timeline.some(
-    point =>
-      normalize(point.stop) ===
-      stop
-  );
-}
-
-
-/* =====================================================
-   STOP ORDER
-===================================================== */
-
-function hasCorrectStopOrder(
-  timeline,
-  from,
-  to
-) {
-
-  const fromIndex =
-    timeline.findIndex(
-      point =>
-        normalize(point.stop) ===
-        from
-    );
-
-
-  if (fromIndex === -1) {
-    return false;
-  }
-
-
-  return timeline
-    .slice(fromIndex + 1)
-    .some(
-      point =>
-        normalize(point.stop) ===
-        to
-    );
 }
 
 
@@ -929,9 +554,7 @@ function hasCorrectStopOrder(
 ===================================================== */
 
 function renderResults(
-  results,
-  from,
-  to
+  results
 ) {
 
   busResults.innerHTML =
@@ -942,32 +565,17 @@ function renderResults(
     results.length;
 
 
-  if (!results.length) {
+  if (
+    !results.length
+  ) {
 
-    emptyState.classList.remove(
-      'hidden'
+    showEmpty(
+      'No scheduled bus service matches the selected criteria.'
     );
 
 
-    emptyState.innerHTML = `
-
-      <div class="empty-icon">
-        🔍
-      </div>
-
-      <h3>
-        No Buses Found
-      </h3>
-
-      <p>
-        No scheduled bus matches your selected search.
-      </p>
-
-    `;
-
-
     resultsSummary.textContent =
-      'No matching buses found.';
+      'No matching services found.';
 
 
     return;
@@ -980,10 +588,8 @@ function renderResults(
 
 
   resultsSummary.textContent =
-    createSearchSummary(
-      results.length,
-      from,
-      to
+    buildSummary(
+      results.length
     );
 
 
@@ -993,8 +599,6 @@ function renderResults(
       const card =
         createBusCard(
           bus,
-          from,
-          to,
           index
         );
 
@@ -1006,53 +610,20 @@ function renderResults(
   );
 
 
-  updateAllBusPositions();
+  /*
+   * Calculate initial bus positions.
+   */
+
+  updateAllBuses();
 }
 
 
 /* =====================================================
-   SEARCH SUMMARY
-===================================================== */
-
-function createSearchSummary(
-  count,
-  from,
-  to
-) {
-
-  let text =
-    `${count} bus${count === 1 ? '' : 'es'} found`;
-
-
-  if (from && to) {
-
-    text +=
-      ` • ${from} → ${to}`;
-
-  } else if (from) {
-
-    text +=
-      ` • From ${from}`;
-
-  } else if (to) {
-
-    text +=
-      ` • To ${to}`;
-  }
-
-
-  return text;
-}
-
-
-/* =====================================================
-   CREATE BUS CARD
+   CARD
 ===================================================== */
 
 function createBusCard(
   bus,
-  from,
-  to,
   index
 ) {
 
@@ -1070,38 +641,20 @@ function createBusCard(
     index;
 
 
-  const routeNumber =
-    escapeHtml(
-      bus.bus ||
-      'Bus'
+  const timeline =
+    compressTimeline(
+      bus.timeline
     );
 
 
-  const routeName =
-    escapeHtml(
-      bus.route ||
-      ''
-    );
-
-
-  const vehicle =
-    escapeHtml(
-      bus.vehicle ||
-      'Vehicle'
-    );
-
-
-  const currentState =
-    calculateBusState(
-      bus.timeline,
-      from,
-      to
+  const stateInfo =
+    getBusState(
+      timeline
     );
 
 
   if (
-    currentState.status ===
-    'running'
+    stateInfo.running
   ) {
 
     card.classList.add(
@@ -1116,27 +669,41 @@ function createBusCard(
 
       <div>
 
-        <div class="bus-route-number">
-          ${routeNumber}
+        <div class="bus-number">
+          ${escapeHtml(
+            bus.bus || 'Bus'
+          )}
         </div>
 
         <div class="bus-route-name">
-          ${routeName}
+          ${escapeHtml(
+            bus.route ||
+            'Route information unavailable'
+          )}
         </div>
 
       </div>
 
-      <div class="vehicle-badge">
-        ${vehicle}
-      </div>
+
+      ${
+        bus.vehicle
+          ? `
+            <div class="vehicle">
+              ${escapeHtml(
+                bus.vehicle
+              )}
+            </div>
+          `
+          : ''
+      }
 
     </div>
 
 
-    <div class="live-message">
+    <div class="bus-status">
 
-      <span class="live-status-text">
-        ${currentState.message}
+      <span class="status-text">
+        ${stateInfo.message}
       </span>
 
     </div>
@@ -1152,31 +719,73 @@ function createBusCard(
         🚌
       </div>
 
-      ${createTimelineStops(
-        bus.timeline,
-        from,
-        to
-      )}
+
+      ${timeline
+        .map(
+          (point, i) => {
+
+            const first =
+              i === 0
+                ? ' first'
+                : '';
+
+            const last =
+              i ===
+              timeline.length - 1
+                ? ' last'
+                : '';
+
+
+            return `
+
+              <div
+                class="timeline-stop${first}${last}"
+                data-index="${i}"
+              >
+
+                <div class="stop-dot"></div>
+
+                <div class="stop-info">
+
+                  <span class="stop-name">
+                    ${escapeHtml(
+                      point.stop
+                    )}
+                  </span>
+
+                  <span class="stop-time">
+                    ${escapeHtml(
+                      point.time12 ||
+                      formatMinutes(
+                        point.minutes
+                      )
+                    )}
+                  </span>
+
+                </div>
+
+              </div>
+
+            `;
+          }
+        )
+        .join('')}
 
     </div>
 
 
     <div class="next-stop">
 
-      <div class="next-stop-inner">
+      <span>
+        Next Stop
+      </span>
 
-        <span class="next-stop-label">
-          Next
-        </span>
-
-        <span class="next-stop-name">
-          ${escapeHtml(
-            currentState.nextStop ||
-            '—'
-          )}
-        </span>
-
-      </div>
+      <strong>
+        ${escapeHtml(
+          stateInfo.nextStop ||
+          '—'
+        )}
+      </strong>
 
     </div>
 
@@ -1188,119 +797,7 @@ function createBusCard(
 
 
 /* =====================================================
-   TIMELINE STOPS
-===================================================== */
-
-function createTimelineStops(
-  timeline,
-  from,
-  to
-) {
-
-  let points =
-    compressTimeline(
-      timeline
-    );
-
-
-  /*
-   * If From / To are selected,
-   * show only that journey section.
-   */
-
-  if (from || to) {
-
-    points =
-      filterTimelineBetweenStops(
-        points,
-        from,
-        to
-      );
-  }
-
-
-  if (!points.length) {
-
-    return `
-      <div class="timeline-stop">
-        <div class="stop-content">
-          <div class="stop-name">
-            No timetable
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-
-  /*
-   * Limit visual timeline to avoid
-   * extremely long cards.
-   */
-
-  const displayPoints =
-    points.length > 80
-      ? points.slice(0, 80)
-      : points;
-
-
-  return displayPoints
-    .map(
-      (point, index) => {
-
-        let classes =
-          'timeline-stop';
-
-
-        if (index === 0) {
-          classes += ' first';
-        }
-
-
-        if (
-          index ===
-          displayPoints.length - 1
-        ) {
-          classes += ' last';
-        }
-
-
-        return `
-
-          <div
-            class="${classes}"
-            data-minutes="${point.minutes}"
-          >
-
-            <div class="stop-dot"></div>
-
-            <div class="stop-content">
-
-              <div class="stop-name">
-                ${escapeHtml(
-                  point.stop
-                )}
-              </div>
-
-              <div class="stop-time">
-                ${escapeHtml(
-                  point.time12
-                )}
-              </div>
-
-            </div>
-
-          </div>
-
-        `;
-      }
-    )
-    .join('');
-}
-
-
-/* =====================================================
-   COMPRESS SAME STOPS
+   COMPRESS TIMELINE
 ===================================================== */
 
 function compressTimeline(
@@ -1310,10 +807,25 @@ function compressTimeline(
   const result = [];
 
 
+  if (
+    !timeline ||
+    !timeline.length
+  ) {
+
+    return result;
+  }
+
+
   timeline.forEach(
     point => {
 
-      if (!point.stop) {
+      const stop =
+        String(
+          point.stop || ''
+        ).trim();
+
+
+      if (!stop) {
         return;
       }
 
@@ -1326,8 +838,12 @@ function compressTimeline(
 
       if (
         last &&
-        normalize(last.stop) ===
-        normalize(point.stop)
+        normalize(
+          last.stop
+        ) ===
+        normalize(
+          stop
+        )
       ) {
 
         last.endMinutes =
@@ -1341,24 +857,25 @@ function compressTimeline(
         result.push({
 
           stop:
-            point.stop,
+            stop,
 
           minutes:
-            point.minutes,
+            Number(
+              point.minutes
+            ),
 
           time12:
             point.time12,
 
           endMinutes:
-            point.minutes,
+            Number(
+              point.minutes
+            ),
 
           endTime12:
             point.time12
-
         });
-
       }
-
     }
   );
 
@@ -1368,93 +885,26 @@ function compressTimeline(
 
 
 /* =====================================================
-   FILTER BETWEEN STOPS
-===================================================== */
-
-function filterTimelineBetweenStops(
-  points,
-  from,
-  to
-) {
-
-  if (!from && !to) {
-    return points;
-  }
-
-
-  let start =
-    0;
-
-  let end =
-    points.length - 1;
-
-
-  if (from) {
-
-    const index =
-      points.findIndex(
-        point =>
-          normalize(point.stop) ===
-          from
-      );
-
-
-    if (index !== -1) {
-      start = index;
-    }
-  }
-
-
-  if (to) {
-
-    const index =
-      points.findIndex(
-        (point, index) =>
-          index >= start &&
-          normalize(point.stop) ===
-          to
-      );
-
-
-    if (index !== -1) {
-      end = index;
-    }
-  }
-
-
-  if (end < start) {
-    return [];
-  }
-
-
-  return points.slice(
-    start,
-    end + 1
-  );
-}
-
-
-/* =====================================================
    BUS STATE
 ===================================================== */
 
-function calculateBusState(
-  timeline,
-  from,
-  to
+function getBusState(
+  timeline
 ) {
 
-  if (!timeline.length) {
+  if (
+    !timeline.length
+  ) {
 
     return {
 
-      status: 'none',
+      running: false,
 
       message:
         'No timetable available',
 
-      nextStop: ''
-
+      nextStop:
+        ''
     };
   }
 
@@ -1463,185 +913,114 @@ function calculateBusState(
     getCurrentMinutes();
 
 
-  const points =
-    compressTimeline(
-      timeline
-    );
-
-
   /*
-   * Find current position.
-   */
-
-  let currentIndex =
-    -1;
-
-
-  for (
-    let i = 0;
-    i < points.length;
-    i++
-  ) {
-
-    const point =
-      points[i];
-
-
-    const next =
-      points[i + 1];
-
-
-    if (!next) {
-
-      if (
-        now >= point.minutes
-      ) {
-
-        currentIndex =
-          i;
-      }
-
-      continue;
-    }
-
-
-    if (
-      now >= point.minutes &&
-      now < next.minutes
-    ) {
-
-      currentIndex =
-        i;
-
-      break;
-    }
-  }
-
-
-  /*
-   * Before first trip.
+   * Before first stop.
    */
 
   if (
-    now < points[0].minutes
+    now <
+    timeline[0].minutes
   ) {
 
     const diff =
-      minutesDifference(
-        now,
-        points[0].minutes
-      );
+      timeline[0].minutes -
+      now;
 
 
     return {
 
-      status: 'upcoming',
+      running: false,
 
       message:
-        `<strong>Next bus</strong> in ${formatRelativeMinutes(diff)}`,
+        `<strong>Upcoming</strong> • Starts in ${formatRelative(diff)}`,
 
       nextStop:
-        points[0].stop
-
+        timeline[0].stop
     };
   }
 
 
   /*
-   * After last point.
+   * Find current segment.
    */
 
-  if (
-    now >
-    points[
-      points.length - 1
-    ].minutes
+  for (
+    let i = 0;
+    i < timeline.length - 1;
+    i++
   ) {
 
-    return {
+    const current =
+      timeline[i];
 
-      status: 'departed',
+    const next =
+      timeline[i + 1];
 
-      message:
-        '<strong>Trip completed</strong> for today',
 
-      nextStop:
-        'No more scheduled stops'
+    if (
+      now >= current.minutes &&
+      now <
+      next.minutes
+    ) {
 
-    };
+      const remaining =
+        next.minutes -
+        now;
+
+
+      if (
+        remaining <= 1
+      ) {
+
+        return {
+
+          running: true,
+
+          message:
+            `<strong>Arriving now</strong> • ${escapeHtml(next.stop)}`,
+
+          nextStop:
+            next.stop
+        };
+      }
+
+
+      return {
+
+        running: true,
+
+        message:
+          `<strong>In service</strong> • Next stop in ${formatRelative(remaining)}`,
+
+        nextStop:
+          next.stop
+      };
+    }
   }
 
 
   /*
-   * Current bus position.
+   * Completed.
    */
-
-  const current =
-    points[currentIndex];
-
-
-  const next =
-    points[currentIndex + 1];
-
-
-  if (!next) {
-
-    return {
-
-      status: 'running',
-
-      message:
-        `<strong>At ${escapeHtml(current.stop)}</strong>`,
-
-      nextStop:
-        'Destination'
-
-    };
-  }
-
-
-  const diff =
-    minutesDifference(
-      now,
-      next.minutes
-    );
-
-
-  if (diff <= 1) {
-
-    return {
-
-      status: 'running',
-
-      message:
-        `<strong>ARRIVING NOW</strong> at ${escapeHtml(next.stop)}`,
-
-      nextStop:
-        next.stop
-
-    };
-  }
-
 
   return {
 
-    status: 'running',
+    running: false,
 
     message:
-      `<strong>On the way</strong> • Next stop ${escapeHtml(next.stop)} in ${formatRelativeMinutes(diff)}`,
+      '<strong>Service completed</strong> for the current timetable',
 
     nextStop:
-      next.stop
-
+      '—'
   };
 }
 
 
 /* =====================================================
-   UPDATE BUS POSITIONS
+   UPDATE ALL BUS POSITIONS
 ===================================================== */
 
-function updateAllBusPositions() {
+function updateAllBuses() {
 
   const cards =
     document.querySelectorAll(
@@ -1659,7 +1038,7 @@ function updateAllBusPositions() {
 
 
       const bus =
-        activeResults[index];
+        state.results[index];
 
 
       if (!bus) {
@@ -1667,7 +1046,7 @@ function updateAllBusPositions() {
       }
 
 
-      updateBusCardPosition(
+      updateBusPosition(
         card,
         bus
       );
@@ -1677,10 +1056,10 @@ function updateAllBusPositions() {
 
 
 /* =====================================================
-   UPDATE ONE BUS
+   MOVE BUS
 ===================================================== */
 
-function updateBusCardPosition(
+function updateBusPosition(
   card,
   bus
 ) {
@@ -1691,7 +1070,10 @@ function updateBusCardPosition(
     );
 
 
-  if (!timeline.length) {
+  if (
+    !timeline.length
+  ) {
+
     return;
   }
 
@@ -1714,391 +1096,188 @@ function updateBusCardPosition(
     );
 
 
-  const message =
+  const status =
     card.querySelector(
-      '.live-status-text'
+      '.status-text'
     );
 
 
-  const nextStopElement =
+  const nextStop =
     card.querySelector(
-      '.next-stop-name'
+      '.next-stop strong'
     );
-
-
-  if (!movingBus) {
-    return;
-  }
 
 
   const now =
     getCurrentMinutes();
 
 
-  /*
-   * Timeline visible points.
-   */
-
-  const displayedPoints =
-    timeline.length > 80
-      ? timeline.slice(0, 80)
-      : timeline;
+  let position =
+    0;
 
 
   /*
-   * Find current segment.
-   */
-
-  let currentIndex =
-    -1;
-
-
-  for (
-    let i = 0;
-    i < displayedPoints.length;
-    i++
-  ) {
-
-    const current =
-      displayedPoints[i];
-
-    const next =
-      displayedPoints[i + 1];
-
-
-    if (!next) {
-
-      if (
-        now >= current.minutes
-      ) {
-        currentIndex = i;
-      }
-
-      continue;
-    }
-
-
-    if (
-      now >= current.minutes &&
-      now < next.minutes
-    ) {
-
-      currentIndex = i;
-
-      break;
-    }
-  }
-
-
-  /*
-   * Before departure.
+   * Before start.
    */
 
   if (
     now <
-    displayedPoints[0].minutes
+    timeline[0].minutes
   ) {
 
-    setBusVisualPosition(
-      movingBus,
-      progress,
-      stops,
-      0
-    );
-
-
-    const diff =
-      minutesDifference(
-        now,
-        displayedPoints[0].minutes
-      );
-
-
-    message.innerHTML =
-      `<strong>Next bus</strong> in ${formatRelativeMinutes(diff)}`;
-
-
-    nextStopElement.textContent =
-      displayedPoints[0].stop;
-
-
-    return;
-  }
-
-
-  /*
-   * After trip.
-   */
-
-  if (
-    now >
-    displayedPoints[
-      displayedPoints.length - 1
-    ].minutes
-  ) {
-
-    setBusVisualPosition(
-      movingBus,
-      progress,
-      stops,
-      displayedPoints.length - 1
-    );
-
-
-    message.innerHTML =
-      '<strong>Trip completed</strong> for today';
-
-
-    nextStopElement.textContent =
-      'No more scheduled stops';
-
-
-    card.classList.remove(
-      'live'
-    );
-
-
-    return;
-  }
-
-
-  /*
-   * Current point.
-   */
-
-  if (
-    currentIndex < 0
-  ) {
-    currentIndex = 0;
-  }
-
-
-  const current =
-    displayedPoints[currentIndex];
-
-
-  const next =
-    displayedPoints[
-      currentIndex + 1
-    ];
-
-
-  let fraction =
-    0;
-
-
-  if (next) {
-
-    const duration =
-      minutesDifference(
-        current.minutes,
-        next.minutes
-      );
-
-
-    const elapsed =
-      minutesDifference(
-        current.minutes,
-        now
-      );
-
-
-    if (duration > 0) {
-
-      fraction =
-        Math.max(
-          0,
-          Math.min(
-            1,
-            elapsed / duration
-          )
-        );
-    }
-  }
-
-
-  const exactPosition =
-    currentIndex +
-    fraction;
-
-
-  setBusVisualPositionInterpolated(
-    movingBus,
-    progress,
-    stops,
-    exactPosition
-  );
-
-
-  if (next) {
-
-    const remaining =
-      minutesDifference(
-        now,
-        next.minutes
-      );
-
-
-    if (remaining <= 1) {
-
-      message.innerHTML =
-        `<strong>ARRIVING NOW</strong> at ${escapeHtml(next.stop)}`;
-
-    } else {
-
-      message.innerHTML =
-        `<strong>On the way</strong> • Next stop ${escapeHtml(next.stop)} in ${formatRelativeMinutes(remaining)}`;
-    }
-
-
-    nextStopElement.textContent =
-      next.stop;
+    position =
+      0;
 
   } else {
 
-    message.innerHTML =
-      `<strong>At ${escapeHtml(current.stop)}</strong>`;
+    /*
+     * After final stop.
+     */
 
-    nextStopElement.textContent =
-      'Destination';
+    if (
+      now >=
+      timeline[
+        timeline.length - 1
+      ].minutes
+    ) {
+
+      position =
+        timeline.length - 1;
+
+    } else {
+
+      for (
+        let i = 0;
+        i <
+        timeline.length - 1;
+        i++
+      ) {
+
+        const current =
+          timeline[i];
+
+        const next =
+          timeline[i + 1];
+
+
+        if (
+          now >=
+          current.minutes &&
+          now <
+          next.minutes
+        ) {
+
+          const duration =
+            next.minutes -
+            current.minutes;
+
+
+          const elapsed =
+            now -
+            current.minutes;
+
+
+          const fraction =
+            duration > 0
+              ? elapsed / duration
+              : 0;
+
+
+          position =
+            i + fraction;
+
+
+          break;
+        }
+      }
+    }
   }
-
-
-  card.classList.add(
-    'live'
-  );
-}
-
-
-/* =====================================================
-   POSITION BUS
-===================================================== */
-
-function setBusVisualPosition(
-  bus,
-  progress,
-  stops,
-  index
-) {
-
-  setBusVisualPositionInterpolated(
-    bus,
-    progress,
-    stops,
-    index
-  );
-}
-
-
-/* =====================================================
-   INTERPOLATED BUS POSITION
-===================================================== */
-
-function setBusVisualPositionInterpolated(
-  bus,
-  progress,
-  stops,
-  position
-) {
-
-  if (!stops.length) {
-    return;
-  }
-
-
-  const clamped =
-    Math.max(
-      0,
-      Math.min(
-        stops.length - 1,
-        position
-      )
-    );
 
 
   const lower =
     Math.floor(
-      clamped
+      position
     );
 
 
   const upper =
     Math.min(
-      stops.length - 1,
-      lower + 1
+      lower + 1,
+      stops.length - 1
     );
 
 
   const fraction =
-    clamped - lower;
+    position - lower;
 
 
-  const first =
+  const lowerStop =
     stops[lower];
 
 
-  const second =
+  const upperStop =
     stops[upper];
 
 
-  if (!first) {
+  if (!lowerStop) {
     return;
   }
 
 
-  const firstCenter =
-    first.offsetTop +
-    first.offsetHeight / 2;
+  const lowerY =
+    lowerStop.offsetTop +
+    lowerStop.offsetHeight / 2;
 
 
-  const secondCenter =
-    second
-      ? second.offsetTop +
-        second.offsetHeight / 2
-      : firstCenter;
+  const upperY =
+    upperStop
+      ? upperStop.offsetTop +
+        upperStop.offsetHeight / 2
+      : lowerY;
 
 
   const y =
-    firstCenter +
+    lowerY +
     (
-      secondCenter -
-      firstCenter
+      upperY -
+      lowerY
     ) *
     fraction;
 
 
-  bus.style.transform =
-    `translateY(${y - 21}px)`;
+  movingBus.style.transform =
+    `translateY(${y - 22}px)`;
 
 
   /*
    * Progress.
    */
 
-  const firstTimeline =
+  const first =
     stops[0];
 
-
-  const lastTimeline =
-    stops[stops.length - 1];
+  const last =
+    stops[
+      stops.length - 1
+    ];
 
 
   if (
-    firstTimeline &&
-    lastTimeline
+    first &&
+    last
   ) {
 
     const start =
-      firstTimeline.offsetTop +
-      firstTimeline.offsetHeight / 2;
+      first.offsetTop +
+      first.offsetHeight / 2;
 
 
     const end =
-      lastTimeline.offsetTop +
-      lastTimeline.offsetHeight / 2;
+      last.offsetTop +
+      last.offsetHeight / 2;
 
 
-    const percentage =
+    const percent =
       end > start
         ? (
             (y - start) /
@@ -2108,7 +1287,47 @@ function setBusVisualPositionInterpolated(
 
 
     progress.style.height =
-      `${Math.max(0, Math.min(100, percentage))}%`;
+      `${Math.max(
+        0,
+        Math.min(
+          100,
+          percent
+        )
+      )}%`;
+  }
+
+
+  /*
+   * Status.
+   */
+
+  const info =
+    getBusState(
+      timeline
+    );
+
+
+  status.innerHTML =
+    info.message;
+
+
+  nextStop.textContent =
+    info.nextStop || '—';
+
+
+  if (
+    info.running
+  ) {
+
+    card.classList.add(
+      'live'
+    );
+
+  } else {
+
+    card.classList.remove(
+      'live'
+    );
   }
 }
 
@@ -2123,31 +1342,51 @@ function updateClock() {
     new Date();
 
 
-  currentTimeElement.textContent =
+  currentTime.textContent =
     now.toLocaleTimeString(
       'en-IN',
       {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
+        hour:
+          '2-digit',
+
+        minute:
+          '2-digit',
+
+        second:
+          '2-digit',
+
+        hour12:
+          true
       }
     );
 
 
-  currentDateElement.textContent =
+  currentDate.textContent =
     now.toLocaleDateString(
       'en-IN',
       {
-        weekday: 'long',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
+        weekday:
+          'long',
+
+        day:
+          '2-digit',
+
+        month:
+          'short',
+
+        year:
+          'numeric'
       }
     );
 
 
-  updateAllBusPositions();
+  /*
+   * This is entirely browser-side.
+   *
+   * No Google Sheet request.
+   */
+
+  updateAllBuses();
 }
 
 
@@ -2170,58 +1409,102 @@ function getCurrentMinutes() {
 
 
 /* =====================================================
-   MINUTE DIFFERENCE
+   FORMAT TIME
 ===================================================== */
 
-function minutesDifference(
-  from,
-  to
+function formatMinutes(
+  minutes
 ) {
 
-  let diff =
-    to - from;
+  let value =
+    Math.floor(
+      minutes
+    );
 
 
-  /*
-   * Handle midnight.
-   */
+  value =
+    (
+      value % 1440 +
+      1440
+    ) % 1440;
 
-  if (diff < 0) {
 
-    diff += 1440;
+  let hour =
+    Math.floor(
+      value / 60
+    );
+
+
+  const minute =
+    value % 60;
+
+
+  const suffix =
+    hour >= 12
+      ? 'PM'
+      : 'AM';
+
+
+  hour =
+    hour % 12;
+
+
+  if (
+    hour === 0
+  ) {
+    hour = 12;
   }
 
 
-  return diff;
+  return (
+    String(hour)
+      .padStart(2, '0') +
+    ':' +
+    String(minute)
+      .padStart(2, '0') +
+    ' ' +
+    suffix
+  );
 }
 
 
 /* =====================================================
-   RELATIVE MINUTES
+   RELATIVE TIME
 ===================================================== */
 
-function formatRelativeMinutes(
+function formatRelative(
   minutes
 ) {
 
-  minutes =
+  const value =
     Math.max(
       0,
-      Math.round(minutes)
+      Math.round(
+        minutes
+      )
     );
 
 
-  if (minutes <= 0) {
+  if (
+    value <= 0
+  ) {
+
     return 'now';
   }
 
 
-  if (minutes === 1) {
+  if (
+    value === 1
+  ) {
+
     return '1 min';
   }
 
 
-  return `${minutes} mins`;
+  return (
+    value +
+    ' mins'
+  );
 }
 
 
@@ -2229,15 +1512,9 @@ function formatRelativeMinutes(
    RESET
 ===================================================== */
 
-function resetFilters() {
+function resetAll() {
 
   quickSearch.value =
-    '';
-
-  routeSelect.value =
-    '';
-
-  vehicleSelect.value =
     '';
 
   fromSelect.value =
@@ -2246,18 +1523,17 @@ function resetFilters() {
   toSelect.value =
     '';
 
+  busSelect.value =
+    '';
 
-  renderRouteOptions(
-    appData.routes
-  );
+  routeSelect.value =
+    '';
+
+  vehicleSelect.value =
+    '';
 
 
-  renderVehicleOptions(
-    appData.routes
-  );
-
-
-  activeResults =
+  state.results =
     [];
 
 
@@ -2270,7 +1546,156 @@ function resetFilters() {
 
 
   resultsSummary.textContent =
-    'Select a route or stop to view buses.';
+    'Select your journey to find available buses.';
+
+
+  showEmpty(
+    'Select From and To stops, or search by route, route name or vehicle number.'
+  );
+}
+
+
+/* =====================================================
+   SWAP
+===================================================== */
+
+function swapStops() {
+
+  const from =
+    fromSelect.value;
+
+  const to =
+    toSelect.value;
+
+
+  fromSelect.value =
+    to;
+
+  toSelect.value =
+    from;
+
+
+  if (
+    from ||
+    to
+  ) {
+
+    searchBuses();
+  }
+}
+
+
+/* =====================================================
+   REFRESH
+===================================================== */
+
+async function refreshData() {
+
+  refreshButton.disabled =
+    true;
+
+
+  refreshButton.textContent =
+    'Refreshing...';
+
+
+  try {
+
+    /*
+     * Refresh server cache.
+     */
+
+    await api(
+      'refresh'
+    );
+
+
+    /*
+     * Reload metadata.
+     */
+
+    await loadMeta();
+
+
+    setConnection(
+      true
+    );
+
+
+    if (
+      state.lastSearch
+    ) {
+
+      await searchBuses();
+    }
+
+
+  } catch (error) {
+
+    console.error(
+      error
+    );
+
+
+    setConnection(
+      false
+    );
+
+  } finally {
+
+    refreshButton.disabled =
+      false;
+
+    refreshButton.textContent =
+      '↻ Refresh';
+  }
+}
+
+
+/* =====================================================
+   LOADING
+===================================================== */
+
+function setLoading(
+  value
+) {
+
+  state.loading =
+    value;
+
+
+  if (value) {
+
+    loadingState.classList.remove(
+      'hidden'
+    );
+
+    emptyState.classList.add(
+      'hidden'
+    );
+
+    busResults.innerHTML =
+      '';
+
+  } else {
+
+    loadingState.classList.add(
+      'hidden'
+    );
+  }
+}
+
+
+/* =====================================================
+   EMPTY
+===================================================== */
+
+function showEmpty(
+  message
+) {
+
+  busResults.innerHTML =
+    '';
 
 
   emptyState.classList.remove(
@@ -2289,62 +1714,10 @@ function resetFilters() {
     </h3>
 
     <p>
-      Choose a route, vehicle or stops to see the live timetable.
+      ${escapeHtml(message)}
     </p>
 
   `;
-}
-
-
-/* =====================================================
-   LOADING
-===================================================== */
-
-function showLoading(
-  state
-) {
-
-  if (state) {
-
-    loadingState.classList.remove(
-      'hidden'
-    );
-
-  } else {
-
-    loadingState.classList.add(
-      'hidden'
-    );
-  }
-}
-
-
-/* =====================================================
-   CONNECTION
-===================================================== */
-
-function setConnectionStatus(
-  online
-) {
-
-  if (online) {
-
-    connectionDot.className =
-      'status-dot online';
-
-
-    connectionText.textContent =
-      'Live connection';
-
-  } else {
-
-    connectionDot.className =
-      'status-dot offline';
-
-
-    connectionText.textContent =
-      'Connection error';
-  }
 }
 
 
@@ -2361,6 +1734,10 @@ function showError(
   );
 
 
+  busResults.innerHTML =
+    '';
+
+
   emptyState.innerHTML = `
 
     <div class="empty-icon">
@@ -2368,7 +1745,7 @@ function showError(
     </div>
 
     <h3>
-      Something went wrong
+      Service temporarily unavailable
     </h3>
 
     <p>
@@ -2380,6 +1757,229 @@ function showError(
 
 
 /* =====================================================
+   CONNECTION
+===================================================== */
+
+function setConnection(
+  online
+) {
+
+  if (online) {
+
+    connectionDot.className =
+      'connection-dot online';
+
+    connectionText.textContent =
+      'Online';
+
+  } else {
+
+    connectionDot.className =
+      'connection-dot offline';
+
+    connectionText.textContent =
+      'Unavailable';
+  }
+}
+
+
+/* =====================================================
+   CREATE OPTION
+===================================================== */
+
+function createOption(
+  value,
+  label
+) {
+
+  const option =
+    document.createElement(
+      'option'
+    );
+
+
+  option.value =
+    value;
+
+
+  option.textContent =
+    label;
+
+
+  return option;
+}
+
+
+/* =====================================================
+   UNIQUE SORT
+===================================================== */
+
+function uniqueSorted(
+  values
+) {
+
+  const map =
+    new Map();
+
+
+  values.forEach(
+    value => {
+
+      const text =
+        String(
+          value || ''
+        ).trim();
+
+
+      if (!text) {
+        return;
+      }
+
+
+      map.set(
+        normalize(text),
+        text
+      );
+    }
+  );
+
+
+  return Array.from(
+    map.values()
+  ).sort(
+    naturalCompare
+  );
+}
+
+
+/* =====================================================
+   NORMALIZE
+===================================================== */
+
+function normalize(
+  value
+) {
+
+  return String(
+    value || ''
+  )
+    .replace(
+      /\s+/g,
+      ' '
+    )
+    .trim()
+    .toUpperCase();
+}
+
+
+/* =====================================================
+   SORT
+===================================================== */
+
+function naturalCompare(
+  a,
+  b
+) {
+
+  return String(a)
+    .localeCompare(
+      String(b),
+      undefined,
+      {
+        numeric:
+          true,
+
+        sensitivity:
+          'base'
+      }
+    );
+}
+
+
+/* =====================================================
+   SUMMARY
+===================================================== */
+
+function buildSummary(
+  count
+) {
+
+  const parts = [];
+
+
+  if (
+    fromSelect.value
+  ) {
+
+    parts.push(
+      'From ' +
+      fromSelect.value
+    );
+  }
+
+
+  if (
+    toSelect.value
+  ) {
+
+    parts.push(
+      'To ' +
+      toSelect.value
+    );
+  }
+
+
+  if (
+    busSelect.value
+  ) {
+
+    parts.push(
+      'Route ' +
+      busSelect.value
+    );
+  }
+
+
+  if (
+    routeSelect.value
+  ) {
+
+    parts.push(
+      routeSelect.value
+    );
+  }
+
+
+  const base =
+    count +
+    ' service' +
+    (
+      count === 1
+        ? ''
+        : 's'
+    ) +
+    ' found';
+
+
+  if (
+    parts.length
+  ) {
+
+    return (
+      base +
+      ' • ' +
+      parts.join(
+        ' • '
+      )
+    );
+  }
+
+
+  return base;
+}
+
+
+/* =====================================================
    ESCAPE HTML
 ===================================================== */
 
@@ -2387,7 +1987,9 @@ function escapeHtml(
   value
 ) {
 
-  return String(value ?? '')
+  return String(
+    value ?? ''
+  )
     .replace(
       /&/g,
       '&amp;'
@@ -2407,46 +2009,5 @@ function escapeHtml(
     .replace(
       /'/g,
       '&#039;'
-    );
-}
-
-
-/* =====================================================
-   NORMALIZE
-===================================================== */
-
-function normalize(
-  value
-) {
-
-  return String(
-    value ?? ''
-  )
-    .replace(
-      /\s+/g,
-      ' '
-    )
-    .trim()
-    .toUpperCase();
-}
-
-
-/* =====================================================
-   NATURAL SORT
-===================================================== */
-
-function naturalCompare(
-  a,
-  b
-) {
-
-  return String(a)
-    .localeCompare(
-      String(b),
-      undefined,
-      {
-        numeric: true,
-        sensitivity: 'base'
-      }
     );
 }
