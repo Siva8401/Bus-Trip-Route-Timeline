@@ -7,16 +7,21 @@
 
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
   >
 
   <meta
     name="theme-color"
-    content="#07111f"
+    content="#063a6b"
+  >
+
+  <meta
+    name="description"
+    content="Puducherry public bus route and timetable information"
   >
 
   <title>
-    Puducherry Bus Live Timeline
+    Puducherry Transport | Bus Information
   </title>
 
   <link
@@ -45,28 +50,49 @@
 
 <body>
 
-  <!-- ========================= -->
-  <!-- HEADER -->
-  <!-- ========================= -->
 
-  <header class="top-header">
+<!-- =================================================
+     GOVERNMENT HEADER
+================================================== -->
 
-    <div class="header-inner">
+<header class="gov-header">
 
-      <div class="brand">
+  <div class="gov-top">
 
-        <div class="brand-icon">
-          🚌
+    <div class="gov-container">
+
+      <span>
+        Government of Puducherry
+      </span>
+
+      <span class="gov-right">
+        Transport Information Portal
+      </span>
+
+    </div>
+
+  </div>
+
+
+  <div class="main-header">
+
+    <div class="gov-container header-content">
+
+
+      <div class="department-brand">
+
+        <div class="emblem">
+          🏛️
         </div>
 
         <div>
 
-          <div class="brand-title">
-            Puducherry Bus
+          <div class="department-name">
+            TRANSPORT DEPARTMENT
           </div>
 
-          <div class="brand-subtitle">
-            Live Timetable
+          <div class="department-state">
+            Government of Puducherry
           </div>
 
         </div>
@@ -74,66 +100,141 @@
       </div>
 
 
-      <div class="live-status">
+      <div class="header-live">
 
         <span
           id="connectionDot"
-          class="status-dot"
+          class="connection-dot"
         ></span>
 
         <span id="connectionText">
-          Connecting...
+          Connecting
         </span>
 
       </div>
 
+
     </div>
 
-  </header>
+  </div>
 
 
-  <!-- ========================= -->
-  <!-- MAIN -->
-  <!-- ========================= -->
+  <nav class="navigation">
 
-  <main class="container">
+    <div class="gov-container nav-inner">
+
+      <span class="nav-active">
+        Bus Information
+      </span>
+
+      <span>
+        Routes
+      </span>
+
+      <span>
+        Timings
+      </span>
+
+      <span>
+        Passenger Information
+      </span>
+
+    </div>
+
+  </nav>
+
+</header>
 
 
-    <!-- SEARCH CARD -->
+<!-- =================================================
+     HERO
+================================================== -->
 
-    <section class="search-card">
+<section class="hero">
 
-      <div class="search-heading">
+  <div class="gov-container hero-inner">
 
-        <h1>
-          Find Your Bus
-        </h1>
+    <div class="hero-content">
 
-        <p>
-          Search routes, buses, vehicles and stops
-        </p>
+      <div class="hero-kicker">
+        PUBLIC TRANSPORT INFORMATION
+      </div>
+
+      <h1>
+        Find Your Bus
+      </h1>
+
+      <p>
+        Search bus routes, stops, vehicle numbers
+        and scheduled timings across Puducherry.
+      </p>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- =================================================
+     MAIN
+================================================== -->
+
+<main class="gov-container main-content">
+
+
+  <!-- SEARCH PANEL -->
+
+  <section class="search-panel">
+
+    <div class="panel-heading">
+
+      <div>
+
+        <span class="section-label">
+          BUS SEARCH
+        </span>
+
+        <h2>
+          Plan Your Journey
+        </h2>
 
       </div>
 
+      <button
+        id="refreshButton"
+        class="refresh-button"
+        type="button"
+      >
+        ↻ Refresh
+      </button>
 
-      <!-- SEARCH -->
+    </div>
 
-      <div class="search-box">
 
-        <span class="search-icon">
+    <!-- QUICK SEARCH -->
+
+    <div class="quick-search">
+
+      <label>
+        Search
+      </label>
+
+      <div class="search-input-wrap">
+
+        <span>
           🔎
         </span>
 
         <input
           id="quickSearch"
-          type="text"
-          placeholder="Search route, bus number or vehicle..."
+          type="search"
+          placeholder="Search bus number, route name or vehicle number"
           autocomplete="off"
         >
 
         <button
           id="clearSearch"
-          class="clear-button"
           type="button"
         >
           ×
@@ -141,251 +242,305 @@
 
       </div>
 
-
-      <!-- FILTER GRID -->
-
-      <div class="filter-grid">
+    </div>
 
 
-        <!-- ROUTE -->
+    <!-- JOURNEY -->
 
-        <div class="field">
-
-          <label>
-            Bus / Route
-          </label>
-
-          <select id="routeSelect">
-
-            <option value="">
-              All Routes
-            </option>
-
-          </select>
-
-        </div>
+    <div class="journey-grid">
 
 
-        <!-- VEHICLE -->
+      <div class="form-field">
 
-        <div class="field">
+        <label>
+          From Stop
+        </label>
 
-          <label>
-            Vehicle Number
-          </label>
+        <select id="fromSelect">
 
-          <select id="vehicleSelect">
+          <option value="">
+            Select starting stop
+          </option>
 
-            <option value="">
-              All Vehicles
-            </option>
-
-          </select>
-
-        </div>
-
-
-        <!-- FROM -->
-
-        <div class="field">
-
-          <label>
-            From Stop
-          </label>
-
-          <select id="fromSelect">
-
-            <option value="">
-              Select From Stop
-            </option>
-
-          </select>
-
-        </div>
-
-
-        <!-- TO -->
-
-        <div class="field">
-
-          <label>
-            To Stop
-          </label>
-
-          <select id="toSelect">
-
-            <option value="">
-              Select To Stop
-            </option>
-
-          </select>
-
-        </div>
-
+        </select>
 
       </div>
 
 
-      <div class="filter-actions">
+      <div class="swap-button-wrap">
 
         <button
-          id="findBusButton"
-          class="primary-button"
+          id="swapButton"
           type="button"
+          class="swap-button"
+          title="Swap stops"
         >
-          Find Buses
-        </button>
-
-        <button
-          id="resetButton"
-          class="secondary-button"
-          type="button"
-        >
-          Reset
+          ⇄
         </button>
 
       </div>
 
-    </section>
+
+      <div class="form-field">
+
+        <label>
+          To Stop
+        </label>
+
+        <select id="toSelect">
+
+          <option value="">
+            Select destination
+          </option>
+
+        </select>
+
+      </div>
 
 
-    <!-- CURRENT TIME -->
+    </div>
 
-    <section class="current-time-card">
+
+    <!-- FILTERS -->
+
+    <div class="filter-grid">
+
+
+      <div class="form-field">
+
+        <label>
+          Bus / Route Number
+        </label>
+
+        <select id="busSelect">
+
+          <option value="">
+            All bus routes
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <div class="form-field">
+
+        <label>
+          Route Name
+        </label>
+
+        <select id="routeSelect">
+
+          <option value="">
+            All route names
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <div class="form-field">
+
+        <label>
+          Vehicle Number
+        </label>
+
+        <select id="vehicleSelect">
+
+          <option value="">
+            All vehicles
+          </option>
+
+        </select>
+
+      </div>
+
+
+    </div>
+
+
+    <div class="search-actions">
+
+      <button
+        id="searchButton"
+        class="search-button"
+        type="button"
+      >
+        <span>🔎</span>
+        Search Buses
+      </button>
+
+      <button
+        id="resetButton"
+        class="reset-button"
+        type="button"
+      >
+        Reset
+      </button>
+
+    </div>
+
+
+  </section>
+
+
+  <!-- CURRENT TIME -->
+
+  <section class="time-strip">
+
+    <div>
+
+      <span class="time-label">
+        CURRENT TIME
+      </span>
+
+      <strong id="currentTime">
+        --:--:--
+      </strong>
+
+    </div>
+
+
+    <div class="time-date">
+
+      <span id="currentDate">
+        --
+      </span>
+
+      <span class="live-badge">
+        ● LIVE
+      </span>
+
+    </div>
+
+  </section>
+
+
+  <!-- RESULTS -->
+
+  <section class="results-section">
+
+
+    <div class="results-heading">
 
       <div>
 
-        <div class="small-label">
-          CURRENT TIME
-        </div>
+        <span class="section-label">
+          BUS SERVICES
+        </span>
 
-        <div
-          id="currentTime"
-          class="current-time"
-        >
-          --:--:--
-        </div>
+        <h2>
+          Available Services
+        </h2>
 
-      </div>
-
-
-      <div class="today-info">
-
-        <div
-          id="currentDate"
-          class="date-text"
-        >
-          --
-        </div>
-
-        <div class="live-pill">
-          ● LIVE
-        </div>
+        <p id="resultsSummary">
+          Select your journey to find available buses.
+        </p>
 
       </div>
 
-    </section>
+
+      <div
+        id="resultCount"
+        class="result-count"
+      >
+        0
+      </div>
+
+    </div>
 
 
-    <!-- RESULTS SUMMARY -->
+    <!-- LOADING -->
 
-    <section
-      id="resultsSection"
-      class="results-section"
+    <div
+      id="loadingState"
+      class="loading-state hidden"
     >
 
-      <div class="results-header">
+      <div class="spinner"></div>
 
-        <div>
+      <strong>
+        Finding buses...
+      </strong>
 
-          <h2>
-            Available Buses
-          </h2>
+      <span>
+        Checking the latest timetable
+      </span>
 
-          <p id="resultsSummary">
-            Select a route or stop to view buses.
-          </p>
-
-        </div>
-
-        <div
-          id="resultCount"
-          class="result-count"
-        >
-          0
-        </div>
-
-      </div>
-
-
-      <!-- BUS CARDS -->
-
-      <div
-        id="busResults"
-        class="bus-results"
-      ></div>
-
-
-      <!-- EMPTY -->
-
-      <div
-        id="emptyState"
-        class="empty-state"
-      >
-
-        <div class="empty-icon">
-          🚌
-        </div>
-
-        <h3>
-          Find a Bus
-        </h3>
-
-        <p>
-          Choose a route, vehicle or stops to see the live timetable.
-        </p>
-
-      </div>
-
-
-      <!-- LOADING -->
-
-      <div
-        id="loadingState"
-        class="loading-state hidden"
-      >
-
-        <div class="loader"></div>
-
-        <p>
-          Loading bus information...
-        </p>
-
-      </div>
-
-    </section>
-
-  </main>
-
-
-  <!-- ========================= -->
-  <!-- FOOTER -->
-  <!-- ========================= -->
-
-  <footer>
-
-    <div>
-      Puducherry Bus Information
     </div>
 
-    <div>
-      Timings are scheduled timetable information.
+
+    <!-- RESULTS -->
+
+    <div
+      id="busResults"
+      class="bus-results"
+    ></div>
+
+
+    <!-- EMPTY -->
+
+    <div
+      id="emptyState"
+      class="empty-state"
+    >
+
+      <div class="empty-icon">
+        🚌
+      </div>
+
+      <h3>
+        Search for a Bus
+      </h3>
+
+      <p>
+        Select From and To stops, or search by route,
+        route name or vehicle number.
+      </p>
+
     </div>
 
-  </footer>
+
+  </section>
 
 
-  <script src="app.js"></script>
+</main>
+
+
+<!-- =================================================
+     FOOTER
+================================================== -->
+
+<footer>
+
+  <div class="gov-container footer-inner">
+
+    <div>
+
+      <strong>
+        Transport Department
+      </strong>
+
+      <span>
+        Government of Puducherry
+      </span>
+
+    </div>
+
+
+    <div class="footer-note">
+
+      Timings displayed are scheduled timetable information.
+
+    </div>
+
+  </div>
+
+</footer>
+
+
+<script src="app.js"></script>
 
 </body>
 
